@@ -1,0 +1,124 @@
+-
+  name: installing various software
+  hosts: localhost
+  become: true
+  tasks:
+    - name: installing apache1
+      apt: name=apache2 state=present update_cache=yes
+    - name: Restart sshd
+      service:
+        name: apache2
+        state: started
+
+    - name: installing php
+      apt: name=php state=present update_cache=yes
+
+    - name: installing libapache
+      apt: name=libapache2-mod-php state=present update_cache=yes
+
+    - name: installing php-mysql
+      apt: name=php-mysql state=present update_cache=yes
+
+    - name: installing php-curl
+      apt: name=php-curl state=present update_cache=yes
+
+    - name: installing php-gd
+      apt: name=php-gd state=present update_cache=yes
+
+    - name: installing php-mbstring
+      apt: name=php-mbstring state=present update_cache=yes
+
+    - name: installing php-xmlrpc
+      apt: name=php-xmlrpc state=present update_cache=yes
+
+    - name: installing unzip
+      apt: name=unzip state=present update_cache=yes
+
+    - name: Delete content & directory
+      file:
+        state: absent
+        path: /var/www/html/index.html
+
+
+    - name: Create document root
+      file:
+        path: "/var/www/domain"
+        state: directory
+      tags: [ apache ]
+
+    - name: Set up Apache VirtualHost
+      template:
+        src: "/etc/apache2/sites-available/000-default.conf"
+        dest: "/etc/apache2/sites-available/domain.com.conf"
+
+
+
+
+    - name: replacing a specific line
+      lineinfile:
+       path: /etc/apache2/sites-available/domain.com.conf
+       regexp: "(.)+DocumentRoot /var/www/html"
+       line: "DocumentRoot /var/www/domain"
+       state: present
+       backup: yes
+
+    - name: adding a specific line
+      lineinfile:
+       path: /etc/apache2/sites-available/domain.com.conf
+       line: "ServerName domain.com"
+       create: yes
+    - name: adding a specific line
+      lineinfile:
+       path: /etc/apache2/sites-available/domain.com.conf
+       line: "ServerAlias www.domain.com"
+       create: yes
+
+
+    - name: Enable rewrite module
+      shell: /usr/sbin/a2enmod rewrite
+
+
+
+
+
+    - name: Enable new site
+      shell: /usr/sbin/a2ensite domain.com.conf
+
+
+    - name: Disable default Apache site
+      shell: /usr/sbin/a2dissite 000-default.conf
+
+
+    - name: "UFW - Allow HTTP on port 80"
+      ufw:
+        rule: allow
+        port: 80
+        proto: tcp
+      tags: [ system ]
+
+    - name: Download and unpack latest WordPress
+      unarchive:
+        src: https://wordpress.org/latest.tar.gz
+        dest: "/var/www/domain"
+        remote_src: yes
+        creates: "/var/www/domain/wordpress"
+      tags: [ wordpress ]
+
+
+    - name: Copy sample config file
+      command: mv /var/www/domain/wordpress/wp-config-sample.php /var/www/domain/wordpress/wp-config.php creates=/var/www/domain/wordpress/wp-config.php
+
+    - name: Set ownership
+      file:
+        path: "/var/www/domain.com"
+        state: directory
+        recurse: yes
+      tags: [ wordpress ]
+
+    - name: Set permissions for directories
+      shell: "/usr/bin/find /var/www/domain/wordpress/ -type d -exec chmod 750 {} \\;"
+      tags: [ wordpress ]
+
+    - name: Set permissions for files
+      shell: "/usr/bin/find /var/www/domain/wordpress/ -type f -exec chmod 640 {} \\;"
+      tags: [ wordpress ]
